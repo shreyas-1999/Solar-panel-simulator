@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy"
+          content="default-src 'self';
+                   script-src 'self' https://unpkg.com;
+                   style-src 'self' 'unsafe-inline' https://unpkg.com;
+                   img-src 'self' data: blob: https://*;
+                   connect-src 'self' https://*;
+                   font-src 'self' data:;" />
+    <title>SolarPro Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet"
+          href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app">
+      <aside id="sidebar">
+        <header>
+          <h1>SolarPro Map</h1>
+          <p class="sub">Solar PV layout & BOM on satellite imagery</p>
+        </header>
+
+        <section class="panel">
+          <h2>Search Location</h2>
+          <div class="row search-wrap">
+            <input type="text" id="searchBox" placeholder="Address, place, or lat,lon" autocomplete="off" />
+            <button id="searchBtn">Go</button>
+            <ul id="searchSuggestions" class="suggestions" hidden></ul>
+          </div>
+        </section>
+
+        <section class="panel actions">
+          <button id="generateBtn" class="primary">Generate Layout</button>
+          <button id="pickStartBtn">Pick Start Point</button>
+          <button id="clearLayoutBtn">Clear Layout</button>
+          <button id="clearAllBtn">Clear All</button>
+          <button id="exportBtn">Export Report (HTML)</button>
+        </section>
+
+        <section class="panel">
+          <h2>1. Capacity</h2>
+          <label>Capacity Mode
+            <select id="capMode">
+              <option value="target">Target MWp</option>
+              <option value="max">Maximum (fill boundary)</option>
+            </select>
+          </label>
+          <label>Target Capacity (MWp) <input type="number" id="targetMW" value="1.0" step="0.1" min="0.01" required /></label>
+        </section>
+
+        <section class="panel">
+          <h2>2. Module</h2>
+          <label>Width (m) <input type="number" id="modW" value="1.134" step="0.001" min="0.1" required /></label>
+          <label>Height (m) <input type="number" id="modH" value="2.278" step="0.001" min="0.1" required /></label>
+          <label>Wattage (Wp) <input type="number" id="modWatt" value="585" step="1" min="1" required /></label>
+          <label>Orientation
+            <select id="orient">
+              <option value="Portrait">Portrait</option>
+              <option value="Landscape">Landscape</option>
+            </select>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2>3. Site</h2>
+          <label>Latitude <input type="number" id="lat" value="" step="0.0001" readonly required /></label>
+          <label>Longitude <input type="number" id="lon" value="" step="0.0001" readonly required /></label>
+          <label>Tilt (deg, blank = latitude) <input type="number" id="tilt" value="" step="0.5" min="0" max="60" /></label>
+          <label>Azimuth (0=South, +W) <input type="number" id="az" value="0" step="1" min="-180" max="180" required /></label>
+          <label>Boundary Set-off (m) <input type="number" id="setoff" value="2.0" step="0.1" min="0" required /></label>
+          <label>PVGIS Loss (%) <input type="number" id="loss" value="14" step="1" min="0" max="100" required /></label>
+        </section>
+
+        <section class="panel">
+          <h2>4. Table Config</h2>
+          <label>Modules per Row (max) <input type="number" id="modRow" value="28" step="1" min="1" required /></label>
+          <label>Modules per Stack <input type="number" id="modStack" value="2" step="1" min="1" required /></label>
+          <label>Gap between stacked rows (m) <input type="number" id="gapV" value="0.02" step="0.01" min="0" required /></label>
+          <label>Gap between stacked cols (m) <input type="number" id="gapH" value="0.02" step="0.01" min="0" required /></label>
+          <label>Gap between tables (m) <input type="number" id="tGapH" value="0.05" step="0.01" min="0" required /></label>
+        </section>
+
+        <section class="panel">
+          <h2>5. Roads</h2>
+          <label>Horizontal Road Width (m) <input type="number" id="hRoadW" value="4" step="0.5" min="0" required /></label>
+          <label>Horizontal Road every N rows <input type="number" id="hRoadFreq" value="6" step="1" min="0" required /></label>
+          <label>Vertical Road Width (m) <input type="number" id="vRoadW" value="4" step="0.5" min="0" required /></label>
+          <label>Vertical Road every N tables <input type="number" id="vRoadFreq" value="4" step="1" min="0" required /></label>
+        </section>
+
+        <section class="panel">
+          <h2>6. Appearance</h2>
+          <label>Panel Color
+            <span class="row color-row">
+              <input type="color" id="panelColor" value="#3b82f6" />
+              <select id="panelPreset">
+                <option value="#3b82f6">Blue (default)</option>
+                <option value="#1e3a8a">Dark Blue</option>
+                <option value="#0f172a">Near Black</option>
+                <option value="#374151">Slate</option>
+                <option value="#0f766e">Teal</option>
+                <option value="#dc2626">Red</option>
+                <option value="#f59e0b">Amber</option>
+                <option value="#16a34a">Green</option>
+              </select>
+            </span>
+          </label>
+          <label>Fill Opacity
+            <input type="range" id="panelOpacity" min="0.1" max="1" step="0.05" value="0.78" />
+          </label>
+        </section>
+
+        <section id="status" class="panel"></section>
+        <section id="report" class="panel"></section>
+      </aside>
+
+      <main id="mapWrap">
+        <div id="map"></div>
+        <div id="legend">
+          <div><span class="sw boundary"></span> Boundary (draw polygon)</div>
+          <div><span class="sw exclude"></span> Exclusion zone</div>
+          <div><span class="sw module"></span> PV Table</div>
+          <div><span class="sw start"></span> Start point (click "Pick Start Point")</div>
+        </div>
+      </main>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+    <script src="js/geo.js"></script>
+    <script src="js/layout.js"></script>
+    <script src="js/pvgis.js"></script>
+    <script src="js/help.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
