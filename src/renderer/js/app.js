@@ -4,10 +4,14 @@
 const map = L.map('map', { zoomControl: true }).setView([20.5937, 78.9629], 5);
 
 // Esri World Imagery (free, no key) for satellite tiles.
+// Esri serves native imagery up to z~19 in most areas. We let Leaflet zoom
+// further (maxZoom 22) but cap tile *requests* at maxNativeZoom so the
+// deepest available tile is upscaled instead of going blank.
 const esriSat = L.tileLayer(
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
   {
     maxZoom: 22,
+    maxNativeZoom: 19,
     attribution:
       'Tiles &copy; Esri &mdash; Source: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
   }
@@ -15,13 +19,24 @@ const esriSat = L.tileLayer(
 
 const labels = L.tileLayer(
   'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
-  { maxZoom: 22, opacity: 0.85 }
+  { maxZoom: 22, maxNativeZoom: 19, opacity: 0.85 }
 ).addTo(map);
 
-const osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; OpenStreetMap contributors'
-});
+// Streets basemap.
+// NOTE: api.openstreetmap.org tile.openstreetmap.org now requires a Referer
+// header and blocks requests from Electron's file:// origin (HTTP 403
+// "Access blocked"). We use CARTO's free OSM-based "Voyager" basemap
+// instead, which works from Electron without a key or referer.
+const osm = L.tileLayer(
+  'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  {
+    subdomains: 'abcd',
+    maxZoom: 22,
+    maxNativeZoom: 19,
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+  }
+);
 
 L.control
   .layers({ Satellite: esriSat, 'Streets (OSM)': osm }, { Labels: labels })
